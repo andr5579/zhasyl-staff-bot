@@ -104,6 +104,9 @@
   .bubble a{color:var(--green-700);font-weight:600}
   .bubble a.doc-link{display:inline-block;margin-top:4px;padding:6px 12px;border-radius:999px;background:var(--green-50);border:1px solid var(--line);text-decoration:none}
   .bubble a.doc-link:hover{background:var(--green-100)}
+  .doc-actions{display:inline-flex;gap:8px;flex-wrap:wrap;vertical-align:middle}
+  .bubble a.doc-link.primary{background:var(--green-800);color:#fff;border-color:var(--green-800)}
+  .bubble a.doc-link.primary:hover{background:var(--green-700)}
   .bubble p+p{margin-top:8px}
   .bubble ul{margin:6px 0 6px 20px}
   .bubble.error{background:#fff6f4;border-color:#f1d4cc;color:#8a3b2a}
@@ -226,12 +229,36 @@
     return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
+
+  // Ссылки Google Drive -> кнопки «Скачать» и «Открыть»
+  function driveDownloadUrl(url){
+    const u = url.replace(/&amp;/g,'&');
+    let m = u.match(/docs\.google\.com\/(document|spreadsheets|presentation)\/d\/([\w-]+)/);
+    if(m){
+      const id=m[2];
+      if(/rtpof=true/.test(u)) return 'https://drive.google.com/uc?export=download&id='+id; // загруженный файл Word/Excel
+      const fmt={document:'docx',spreadsheets:'xlsx',presentation:'pptx'}[m[1]];
+      return 'https://docs.google.com/'+m[1]+'/d/'+id+'/export?format='+fmt;           // документ Google
+    }
+    m = u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:[^#]*&)?id=)([\w-]+)/);
+    if(m) return 'https://drive.google.com/uc?export=download&id='+m[1];
+    return null;
+  }
+  function linkHtml(url){
+    const dl = driveDownloadUrl(url);
+    if(dl){
+      return '<span class="doc-actions">'+
+        '<a class="doc-link primary" href="'+dl.replace(/&/g,'&amp;')+'" target="_blank" rel="noopener">Скачать ↓</a>'+
+        '<a class="doc-link" href="'+url+'" target="_blank" rel="noopener">Открыть ↗</a></span>';
+    }
+    return '<a class="doc-link" href="'+url+'" target="_blank" rel="noopener">Открыть ссылку ↗</a>';
+  }
   // Простое оформление ответа: **жирный**, ссылки, списки, абзацы
   function format(text){
     let t = escapeHtml(text.trim());
     t = t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
     t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
-    t = t.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g,(m,pre,url)=>pre+'<a class="doc-link" href="'+url+'" target="_blank" rel="noopener">'+(/docs\.google\.com|drive\.google\.com/.test(url)?'Открыть документ':'Открыть ссылку')+' ↗</a>');
+    t = t.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g,(m,pre,url)=>pre+linkHtml(url));
     const blocks = t.split(/\n{2,}/);
     return blocks.map(b=>{
       const lines = b.split('\n');
